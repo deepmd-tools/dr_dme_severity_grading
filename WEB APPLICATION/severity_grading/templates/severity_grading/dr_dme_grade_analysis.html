@@ -1,0 +1,208 @@
+{% load static %}
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    <link href="{% static 'severity_grading/dr_dme_grade_analysis.css' %}" rel="stylesheet">
+
+    <!-- Charts.js cdn     -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
+
+
+    <title>Diabetic Retinopathy Severity Grade Analysis</title>
+  </head>
+  <body>
+
+    <nav class="navbar">
+      <div class="container-fluid">
+        <span class="lead"><strong><span class="navigation_heading">ADRA:</span></strong><span class="lead">Automatic Diabetic Retinopathy Assessment</span></span>
+      </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-5 image_container">
+
+                <div class="dr_image_box">
+                    {% if status == 'not-uploaded' %}
+                        <div class="notice">
+                            <h4 class="lead">How to use this app?</h4>
+                            <ul>
+                                <li class="lead"><b>Step 1: </b> Please select a retinal fundus image from file selector to the right.</li>
+                                <li class="lead"><b>Step 2: </b> Click on <strong>Upload</strong> button to upload your image.</li>
+                                <li class="lead"><b>Step 3: </b> Click on <strong>Analyze</strong> button to grade severity of DR and DME.</li>
+                            </ul>
+                        </div>
+                    {% elif status == 'no-image' %}
+                        <div class="notice">
+                            <h4 class="lead">Oops! Looks like you haven't selected any image, Please select a retinal image and click on <strong>Upload</strong> button.</h4>
+                        </div>
+                    {% else %}
+                        <img src="{% static '../media/dr_dme_grading/grade_dr.jpg' %}" alt="" class="dr_image">
+                    {% endif %}
+                </div>
+
+            </div>
+            <div class="col-sm-7 prediction_container">
+                <div class="row">
+                    <h3 class="lead">Please select retinal image to analyze..</h3>
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="controls">
+                            <input class="form-control" id="formFileSm" type="file" accept="image/*" name="browse_img">
+                            <button name="upload_img" type="submit" value="Submit" class="btn upload_btn">UPLOAD</button>
+                            <button name="predict_img" type="submit" value="Submit" class="btn analyze_btn">ANALYZE</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="row dr_prediction">
+                    <div class="col-sm-8 dr_prediction_graph">
+                        <canvas id="myChart" width="200" height="100"></canvas>
+                        <script>
+                            var ctx = document.getElementById('myChart');
+                            var myChart = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: ['No DR', 'Mild', 'Moderate', 'Severe', 'Proliferative'],
+                                    datasets: [{
+                                        label: 'Grading of Diabetic Retinopathy',
+                                        barPercentage: 0.8,
+
+                                        barThickness: 50,
+                                        data: [{% for datas in predictions %} {{ datas }}, {% endfor %}],
+                                        backgroundColor: [
+                                            'rgba(255, 99, 132, 0.2)',
+                                            'rgba(54, 162, 235, 0.2)',
+                                            'rgba(255, 206, 86, 0.2)',
+                                            'rgba(75, 192, 192, 0.2)',
+                                            'rgba(153, 102, 255, 0.2)',
+                                            'rgba(255, 159, 64, 0.2)'
+                                        ],
+                                        borderColor: [
+                                            'rgba(255, 99, 132, 1)',
+                                            'rgba(54, 162, 235, 1)',
+                                            'rgba(255, 206, 86, 1)',
+                                            'rgba(75, 192, 192, 1)',
+                                            'rgba(153, 102, 255, 1)',
+                                            'rgba(255, 159, 64, 1)'
+                                        ],
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    scales: {
+                                        yAxes: [{
+                                            ticks: {
+                                                beginAtZero: true
+                                            }
+                                        }]
+                                    }
+                                }
+                            });
+                        </script>
+                    </div>
+                    <div class="col-sm-4 dr_prediction_result">
+                        <h3 class="lead"><strong>DR Severity Grade</strong></h3>
+                        <div class="grade">
+                            <div><h4 class="lead"><strong>Grade:</strong></h4></div>
+                            <div><h4 class="lead">{{ grade }}</h4></div>
+                        </div>
+                        <div class="level">
+                            <div><h4 class="lead"><strong>Severity Level:</strong></h4></div>
+                            {% if grade == 0 %}
+                                <div><h4 class="lead">No DR</h4></div>
+                            {% elif grade == 1 %}
+                                <div><h4 class="lead">Mild NPDR</h4></div>
+                            {% elif grade == 2 %}
+                                <div><h4 class="lead">Moderate NPDR</h4></div>
+                            {% elif grade == 3 %}
+                                <div><h4 class="lead">Severe NPDR</h4></div>
+                            {% elif grade == 4 %}
+                                <div><h4 class="lead">Proliferative DR</h4></div>
+                            {% else %}
+                                <div><h4 class="lead">....</h4></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="row dme_prediction">
+                    <div class="col-sm-8 dme_prediction_graph">
+                        <canvas id="myChart2" width="200" height="100"></canvas>
+                        <script>
+                        var ctx = document.getElementById('myChart2');
+                        var myChart = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: ['No DME', 'Mild DME', 'High DME'],
+                                datasets: [{
+                                    label: 'Grading of Diabetic Macular Edema',
+                                    barPercentage: 0.8,
+
+                                    barThickness: 50,
+                                    data: [{% for datas1 in predictions1 %} {{ datas1 }}, {% endfor %}],
+                                    backgroundColor: [
+                                        'rgba(255, 99, 132, 0.2)',
+                                        'rgba(54, 162, 235, 0.2)',
+                                        'rgba(255, 206, 86, 0.2)',
+                                        'rgba(75, 192, 192, 0.2)',
+                                        'rgba(153, 102, 255, 0.2)',
+                                        'rgba(255, 159, 64, 0.2)'
+                                    ],
+                                    borderColor: [
+                                        'rgba(255, 99, 132, 1)',
+                                        'rgba(54, 162, 235, 1)',
+                                        'rgba(255, 206, 86, 1)',
+                                    'rgba(75, 192, 192, 1)',
+                                        'rgba(153, 102, 255, 1)',
+                                        'rgba(255, 159, 64, 1)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    yAxes: [{
+                                        ticks: {
+                                            beginAtZero: true
+                                        }
+                                    }]
+                                }
+                            }
+                        });
+                        </script>
+                    </div>
+                    <div class="col-sm-4 dme_prediction_result">
+                        <h3 class="lead"><strong>DME Severity Grade</strong></h3>
+                        <div class="grade">
+                            <div><h4 class="lead"><strong>Grade:</strong></h4></div>
+                            <div><h4 class="lead">{{ grade1 }}</h4></div>
+                        </div>
+                        <div class="level">
+                            <div><h4 class="lead"><strong>Severity Level:</strong></h4></div>
+                            {% if grade1 == 0 %}
+                                <div><h4 class="lead">No DME</h4></div>
+                            {% elif grade1 == 1 %}
+                                <div><h4 class="lead">Mild DME</h4></div>
+                            {% elif grade1 == 2 %}
+                                <div><h4 class="lead">High DME</h4></div>
+                            {% else %}
+                                <div><h4 class="lead">....</h4></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js" integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0" crossorigin="anonymous"></script>
+  </body>
+</html>
